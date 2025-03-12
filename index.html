@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Valor de Monedas en Tiempo Real</title>
+    <style>
+        body {
+            margin: 0;
+			width: 80vw;
+			height: 80vh;
+            overflow: hidden;
+			display: flex;
+			aligh-items: center;
+			justify-content: center;
+			font-family: "Open Sans", sans-serif;
+        }
+        #fondo {
+            position: absolute;
+			top: 0;
+			left: 0;
+            width: 1800px;
+            height: 540px;
+            background: url("fondo.png") no-repeat center center;
+            background-size: cover;
+        }
+        .data-box {
+            position: absolute;
+            color: #0F3F85;
+            font-size: 49px;
+            font-weight: bold;
+            padding: 10px;
+            border-radius: 10px;
+			z-index: 2;
+        }
+        #dolar {
+            top: 250px;
+            left: 390px;
+        }
+        #euro {
+            top: 250px;
+            left: 780px;
+        }
+        #bitcoin {
+            top: 250px;
+            left: 1153px;
+        }
+        .updated-time {
+            position: absolute;
+            bottom: 10px;
+            left: 50px;
+            font-size: 16px;
+            font-weight: normal;
+            color: black;
+        }
+    </style>
+</head>
+<body>
+    <div id="fondo"></div>
+    <div class="container">
+        <div id="dolar" class="data-box">Cargando...</div>
+        <div id="euro" class="data-box">Cargando...</div>
+        <div id="bitcoin" class="data-box">Cargando...</div>
+        <div id="last-update" class="updated-time"></div>
+    </div>
+
+    <script>
+        async function fetchData() {
+            try {
+                // Obtener TRM desde el Banco de la República
+                const trmResponse = await fetch("https://www.datos.gov.co/resource/32sa-8pi3.json?$limit=1&$order=vigenciadesde DESC");
+                const trmData = await trmResponse.json();
+                const trmValue = parseFloat(trmData[0].valor);
+                const trmDate = trmData[0].vigenciadesde.split("T")[0];
+
+                // Obtener Euro desde ExchangeRate API
+                const euroResponse = await fetch("https://v6.exchangerate-api.com/v6/27e7c68505d47a1cdbe684b0/latest/EUR");
+                const euroData = await euroResponse.json();
+                const euroToCop = euroData.conversion_rates.COP;
+                const euroValue = euroToCop.toLocaleString("es-CO", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+                // Obtener Bitcoin desde CoinGecko
+                const btcResponse = await fetch("https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=cop");
+                const btcData = await btcResponse.json();
+                const btcValue = btcData.bitcoin.cop.toLocaleString("es-CO");
+
+                // Mostrar los valores en pantalla
+                document.getElementById("dolar").innerHTML = `$${trmValue.toLocaleString("es-CO")} COP<br><small>TRM ${trmDate}</small>`;
+                document.getElementById("euro").innerHTML = `€${euroValue} COP`;
+                document.getElementById("bitcoin").innerHTML = `₿${btcValue} COP`;
+
+                // Mostrar la última hora de actualización
+                const now = new Date();
+                document.getElementById("last-update").innerText = `Última actualización: ${now.getHours()}:${now.getMinutes().toString().padStart(2, "0")}`;
+            } catch (error) {
+                console.error("Error al cargar los datos:", error);
+                document.getElementById("dolar").innerHTML = "Error al cargar";
+                document.getElementById("euro").innerHTML = "Error al cargar";
+                document.getElementById("bitcoin").innerHTML = "Error al cargar";
+            }
+        }
+
+        fetchData();
+        setInterval(fetchData, 1800000); // Actualiza cada 30 minutos
+    </script>
+</body>
+</html>
