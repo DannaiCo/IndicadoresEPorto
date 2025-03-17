@@ -65,43 +65,52 @@
     </div>
 
     <script>
-        async function fetchData() {
-            try {
-                // Obtener TRM desde el Banco de la República
-                const trmResponse = await fetch("https://www.datos.gov.co/resource/32sa-8pi3.json?$limit=1&$order=vigenciadesde DESC");
-                const trmData = await trmResponse.json();
-                const trmValue = parseFloat(trmData[0].valor);
-                const trmDate = trmData[0].vigenciadesde.split("T")[0];
+async function fetchData() {
+    try {
+        // 1. Obtener TRM desde el Banco de la República
+        const trmResponse = await fetch("https://www.datos.gov.co/resource/32sa-8pi3.json?$limit=1&$order=vigenciadesde DESC");
+        const trmData = await trmResponse.json();
+        const trmValue = parseFloat(trmData[0].valor);
+        const trmDate = trmData[0].vigenciadesde.split("T")[0];
 
-                // Obtener Euro desde ExchangeRate API
-                const euroResponse = await fetch("https://v6.exchangerate-api.com/v6/27e7c68505d47a1cdbe684b0/latest/EUR");
-                const euroData = await euroResponse.json();
-                const euroToCop = euroData.conversion_rates.COP;
-                const euroValue = euroToCop.toLocaleString("es-CO", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        // 2. Obtener Euro a USD desde Frankfurter
+        const euroResponse = await fetch("https://api.frankfurter.app/latest?from=EUR&to=USD");
+        const euroData = await euroResponse.json();
+        const eurToUsd = euroData?.rates?.USD;
+        if (!eurToUsd) throw new Error("No se pudo obtener el valor del euro desde Frankfurter");
 
-                // Obtener Bitcoin desde CoinGecko
-                const btcResponse = await fetch("https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=cop");
-                const btcData = await btcResponse.json();
-                const btcValue = btcData.bitcoin.cop.toLocaleString("es-CO");
+        // 3. Calcular Euro a COP
+        const euroCOP = (eurToUsd * trmValue).toLocaleString("es-CO", {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2
+        });
 
-                // Mostrar los valores en pantalla
-                document.getElementById("dolar").innerHTML = `$${trmValue.toLocaleString("es-CO")} COP<br><small>TRM ${trmDate}</small>`;
-                document.getElementById("euro").innerHTML = `€${euroValue} COP`;
-                document.getElementById("bitcoin").innerHTML = `₿${btcValue} COP`;
+        // 4. Obtener Bitcoin a COP desde CoinGecko
+        const btcResponse = await fetch("https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=cop");
+        const btcData = await btcResponse.json();
+        const btcValue = btcData.bitcoin.cop.toLocaleString("es-CO");
 
-                // Mostrar la última hora de actualización
-                const now = new Date();
-                document.getElementById("last-update").innerText = `Última actualización: ${now.getHours()}:${now.getMinutes().toString().padStart(2, "0")}`;
-            } catch (error) {
-                console.error("Error al cargar los datos:", error);
-                document.getElementById("dolar").innerHTML = "Error al cargar";
-                document.getElementById("euro").innerHTML = "Error al cargar";
-                document.getElementById("bitcoin").innerHTML = "Error al cargar";
-            }
-        }
+        // 5. Mostrar los datos en pantalla
+        document.getElementById("dolar").innerHTML = `$${trmValue.toLocaleString("es-CO")} COP<br><small>TRM ${trmDate}</small>`;
+        document.getElementById("euro").innerHTML = `€${euroCOP} COP`;
+        document.getElementById("bitcoin").innerHTML = `₿${btcValue} COP`;
 
-        fetchData();
-        setInterval(fetchData, 1800000); // Actualiza cada 30 minutos
-    </script>
+        // 6. Mostrar hora de actualización
+        const now = new Date();
+        const horas = now.getHours();
+        const minutos = now.getMinutes().toString().padStart(2, "0");
+        document.getElementById("last-update").innerText = `Última actualización: ${horas}:${minutos}`;
+    } catch (error) {
+        console.error("Error al cargar los datos:", error);
+        document.getElementById("dolar").innerHTML = "Error al cargar";
+        document.getElementById("euro").innerHTML = "Error al cargar";
+        document.getElementById("bitcoin").innerHTML = "Error al cargar";
+    }
+}
+
+// Ejecutar al cargar y luego cada 12 horas (2 veces al día)
+fetchData();
+setInterval(fetchData, 12 * 60 * 60 * 1000); // 12 horas
+</script>
 </body>
 </html>
